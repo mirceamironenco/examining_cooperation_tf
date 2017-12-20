@@ -15,7 +15,7 @@ from tensorflow.python.ops.rnn_cell import LSTMCell, MultiRNNCell
 from tensorflow.python.ops.rnn_cell import LSTMStateTuple
 from tensorflow.python.util import nest
 
-from round_based import dataloader
+ import dataloader
 
 
 def ranks(predictions, dataset, true_inds, sqrt=True):
@@ -366,12 +366,11 @@ class ABOT(object):
 			self.h_state_ph: h1,
 			self.c2_state_ph: c2,
 			self.h2_state_ph: h2,
-			self.imfeat_ph: img_feats  # TODO(Mircea): Check correctness
+			self.imfeat_ph: img_feats
 		}
 
 	def make_decode_feed(self, data, c1, h1, c2, h2):
 		question, history, aanswer, q_len, h_len, a_len, img_feats, img_inds = data
-		print('Question received by abot is {} with shape {}'.format(question, question.shape))
 		return {
 			self.fact_encoder_inputs: history,
 			self.fact_encoder_inputs_length: h_len,
@@ -400,7 +399,6 @@ class ABOT(object):
 
 	def train(self, data, epochs):
 		start_time = time.time()
-		print('Started training ABOT model for {} epochs.'.format(epochs))
 		num_batches = int(np.ceil(data.num_train_threads / self.batch_size))
 
 		self.log_writer = tf.summary.FileWriter(self.config.logs_path,
@@ -414,7 +412,6 @@ class ABOT(object):
 				c2 = np.zeros((self.batch_size, self.history_dim))
 				h2 = np.zeros((self.batch_size, self.history_dim))
 				batch_loss = 0.
-				# batch_regression_loss = 0.
 				batch_start_time = time.time()
 				for cur_round in range(10):
 					feed_dict = self.make_train_feed(
@@ -503,43 +500,6 @@ class ABOT(object):
 		print('List to be printed is length {}'.format(len(to_print)))
 		print(" ".join(to_print))
 		print("----------")
-
-
-# def preprocess_qa(questions, answers, stop_token=0):
-# 	# Shapes
-# 	sequence_length = questions.shape[0] + answers.shape[0]
-# 	batch_size = questions.shape[1]
-#
-# 	facts = np.zeros(shape=(sequence_length, batch_size))
-# 	facts[:questions.shape[0], :questions.shape[1]] = questions
-# 	fact_len = np.zeros(batch_size)
-#
-# 	# transpose facts so that each datapoint is a row
-# 	for i, row in enumerate(facts.T):
-#
-# 		# will always exist as matrix is initialized to zeros
-# 		first_zero_idx = min(np.argmax(row == stop_token), np.argmax(row == 0))
-#
-# 		# indices where answers are zeros
-# 		answer_zeros = np.where(answers[:, i] == 0)[0]
-#
-# 		if len(answer_zeros) > 0:
-# 			answer_len = np.min(answer_zeros) + 1  # correction for 0-based indexing
-# 		else:  # maximal size
-# 			answer_len = answers.shape[0]
-#
-# 		# Remove stop token
-# 		if answers[answer_len - 1, i] == stop_token:
-# 			answer_len -= 1
-#
-# 		# Assign
-# 		facts[first_zero_idx:first_zero_idx + answer_len, i] = answers[:answer_len, i]
-#
-# 		# Lengths
-# 		question_len = first_zero_idx + 1
-# 		fact_len[i] = question_len + answer_len
-#
-# 	return facts, fact_len
 
 class QBOT(object):
 	def __init__(self,
@@ -782,10 +742,6 @@ class QBOT(object):
 						self.decoder_outputs_length_decode, axis=-1
 					)
 				else:
-					# shape is [max_steps, batch_size, beam_width]
-					# note: The final computation uses GatherTree to identify the true indices at each time
-					# step. This means that the 0th beam is the one with the highest score; and
-					# you should be able to use predicted_ids[:, :, 0] to access it.
 					self.decoder_pred_decode = self.decoder_outputs_decode.predicted_ids
 
 	def build_training(self):
@@ -806,11 +762,6 @@ class QBOT(object):
 			                    grads_vars if grad is not None]
 			self.update_op = self.optimizer.apply_gradients(cliped_gradients, self.t_op)
 
-		# Regression training
-		# self.l2_dist_sq = tf.sqrt(tf.reduce_sum(tf.square(self.y_t - self.imfeat_ph),
-		#                                         name='prediction_l2'))
-		# self.l2_dist_sq = tf.reduce_sum(tf.square(self.y_t - self.imfeat_ph),
-		#                                         name='prediction_l2')
 		self.l2_dist_sq = tf.sqrt(
 			tf.reduce_sum(tf.square(self.y_t - self.imfeat_ph), axis=1))
 		self.batch_l2_loss = tf.reduce_mean(self.l2_dist_sq)
@@ -837,7 +788,6 @@ class QBOT(object):
 		return decoder_cell, decoder_initial_state
 
 	def save(self, path, var_list=None, global_step=None):
-		# var_list = None returns the list of all saveable variables
 		sess = self.session
 		saver = tf.train.Saver(var_list)
 
@@ -1152,10 +1102,6 @@ def decode_both(qbot, abot, data, qbot_session, abot_session, config):
 
 		print('Decoded dialong for round {}, batch 0:'.format(cur_round))
 		print(' '.join(list(vocabulary[token] for token in qa[:, 0] if token in vocabulary)))
-
-	# print('concatenated q is {}'.format(q_concat))
-	# print('concatenated q halfed is {}'.format(q_concat[:np.max(q_concat_len), :]))
-	# print('lengths are {}'.format(q_concat_len))
 
 
 def rank_both(qbot, abot, data, qbot_session, abot_session, config, eval_size=10000):
@@ -1517,7 +1463,6 @@ def load_model(session, config, mode='train', epoch=None):
 def training():
 	data_loader = fetch_dataloader()
 	config = flags
-	# # TODO(Mircea): Should the start token be in the vocabulary?
 
 	config.start_token = data_loader.data['word2ind']['<START>']
 	config.end_token = data_loader.data['word2ind']['<EOS>']
